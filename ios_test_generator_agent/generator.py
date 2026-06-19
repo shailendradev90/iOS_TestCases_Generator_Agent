@@ -210,10 +210,7 @@ class TestGenerator:
         # Filter types by target if specified
         types_to_test = swift_file.types
         if self.config.target_types:
-            types_to_test = [
-                t for t in types_to_test
-                if t.name in self.config.target_types
-            ]
+            types_to_test = [t for t in types_to_test if t.name in self.config.target_types]
 
         for swift_type in types_to_test:
             # Skip protocols (they're tested through conforming types)
@@ -230,9 +227,7 @@ class TestGenerator:
 
         return test_cases
 
-    def _generate_test_case(
-        self, swift_type: SwiftType, swift_file: SwiftFile
-    ) -> TestCase | None:
+    def _generate_test_case(self, swift_type: SwiftType, swift_file: SwiftFile) -> TestCase | None:
         """Generate a test case for a single Swift type.
 
         Args:
@@ -284,9 +279,7 @@ class TestGenerator:
             # Determine imports needed
             imports = self._determine_imports(swift_file, swift_type)
 
-            logger.info(
-                f"Generated {len(test_methods)} test methods for {swift_type.name}"
-            )
+            logger.info(f"Generated {len(test_methods)} test methods for {swift_type.name}")
 
             return TestCase(
                 test_class_name=test_class_name,
@@ -337,7 +330,8 @@ class TestGenerator:
 
         # List methods to test
         testable_methods = [
-            m for m in swift_type.methods
+            m
+            for m in swift_type.methods
             if m.access_control.value in ("public", "internal", "open")
         ]
         if testable_methods:
@@ -348,7 +342,8 @@ class TestGenerator:
 
         # List properties to test
         testable_props = [
-            p for p in swift_type.properties
+            p
+            for p in swift_type.properties
             if p.access_control.value in ("public", "internal", "open")
         ]
         if testable_props:
@@ -365,9 +360,7 @@ class TestGenerator:
 
         return "\n".join(parts)
 
-    def _find_related_types(
-        self, target_type: SwiftType, swift_file: SwiftFile
-    ) -> list[SwiftType]:
+    def _find_related_types(self, target_type: SwiftType, swift_file: SwiftFile) -> list[SwiftType]:
         """Find types referenced by the target type for context."""
         related: list[SwiftType] = []
         source = target_type.raw_source
@@ -440,9 +433,7 @@ class TestGenerator:
         match = pattern.search(source)
         return match.group(1).strip() if match else ""
 
-    def _determine_imports(
-        self, swift_file: SwiftFile, swift_type: SwiftType
-    ) -> list[str]:
+    def _determine_imports(self, swift_file: SwiftFile, swift_type: SwiftType) -> list[str]:
         """Determine what imports are needed for the test file."""
         imports = ["XCTest"]
 
@@ -457,15 +448,28 @@ class TestGenerator:
 
         # Check if UIKit is likely needed
         source = swift_type.raw_source
-        ui_indicators = ["UIView", "UIViewController", "UILabel", "UIButton",
-                         "UITableView", "UICollectionView", "UIImage", "UIColor"]
+        ui_indicators = [
+            "UIView",
+            "UIViewController",
+            "UILabel",
+            "UIButton",
+            "UITableView",
+            "UICollectionView",
+            "UIImage",
+            "UIColor",
+        ]
         if any(indicator in source for indicator in ui_indicators):
             if "UIKit" not in imports:
                 imports.append("UIKit")
 
         # Check for Combine
-        combine_indicators = ["PassthroughSubject", "CurrentValueSubject",
-                              "AnyCancellable", "Publisher", "@Published"]
+        combine_indicators = [
+            "PassthroughSubject",
+            "CurrentValueSubject",
+            "AnyCancellable",
+            "Publisher",
+            "@Published",
+        ]
         if any(indicator in source for indicator in combine_indicators):
             if "Combine" not in imports:
                 imports.append("Combine")

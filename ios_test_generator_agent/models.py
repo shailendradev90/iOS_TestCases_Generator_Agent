@@ -9,6 +9,7 @@ from pathlib import Path
 
 class SwiftAccessControl(Enum):
     """Swift access control levels."""
+
     OPEN = "open"
     PUBLIC = "public"
     INTERNAL = "internal"
@@ -18,6 +19,7 @@ class SwiftAccessControl(Enum):
 
 class SwiftDeclarationKind(Enum):
     """Types of Swift declarations."""
+
     CLASS = "class"
     STRUCT = "struct"
     ENUM = "enum"
@@ -27,6 +29,7 @@ class SwiftDeclarationKind(Enum):
 
 class MethodKind(Enum):
     """Types of methods."""
+
     INSTANCE = "instance"
     STATIC = "static"
     CLASS = "class"
@@ -37,6 +40,7 @@ class MethodKind(Enum):
 @dataclass
 class SwiftParameter:
     """Represents a function/method parameter."""
+
     label: str  # external label
     name: str  # internal name
     type: str
@@ -57,6 +61,7 @@ class SwiftParameter:
 @dataclass
 class SwiftProperty:
     """Represents a property in a Swift type."""
+
     name: str
     type: str
     access_control: SwiftAccessControl = SwiftAccessControl.INTERNAL
@@ -69,6 +74,7 @@ class SwiftProperty:
 @dataclass
 class SwiftMethod:
     """Represents a method/function in a Swift type."""
+
     name: str
     return_type: str | None = None
     parameters: list[SwiftParameter] = field(default_factory=list)
@@ -95,6 +101,7 @@ class SwiftMethod:
 @dataclass
 class SwiftEnumCase:
     """Represents a case in a Swift enum."""
+
     name: str
     raw_value: str | None = None
     associated_values: list[SwiftParameter] = field(default_factory=list)
@@ -103,6 +110,7 @@ class SwiftEnumCase:
 @dataclass
 class SwiftType:
     """Represents a Swift type (class, struct, enum, protocol, extension)."""
+
     name: str
     kind: SwiftDeclarationKind
     access_control: SwiftAccessControl = SwiftAccessControl.INTERNAL
@@ -120,6 +128,7 @@ class SwiftType:
 @dataclass
 class SwiftFile:
     """Represents a parsed Swift source file."""
+
     path: Path
     imports: list[str] = field(default_factory=list)
     types: list[SwiftType] = field(default_factory=list)
@@ -130,6 +139,7 @@ class SwiftFile:
 @dataclass
 class iOSProject:
     """Represents an iOS project structure."""
+
     root_path: Path
     name: str = ""
     source_files: list[Path] = field(default_factory=list)
@@ -143,6 +153,7 @@ class iOSProject:
 @dataclass
 class TestCase:
     """Represents a generated test case."""
+
     test_class_name: str
     source_type_name: str
     source_file_path: str
@@ -156,6 +167,7 @@ class TestCase:
 @dataclass
 class TestSuite:
     """Represents a collection of generated test cases for a project."""
+
     project_name: str
     test_cases: list[TestCase] = field(default_factory=list)
     output_directory: Path | None = None
@@ -164,9 +176,10 @@ class TestSuite:
 @dataclass
 class AgentConfig:
     """Configuration for the test generator agent."""
+
     # LLM settings
     llm_provider: str = "groq"  # "openai", "anthropic", or "groq"
-    model: str =  "openai/gpt-oss-120b"  #"gpt-4o"
+    model: str = "openai/gpt-oss-120b"  # "gpt-4o"
     temperature: float = 0.2
     max_tokens: int = 4096
 
@@ -183,10 +196,16 @@ class AgentConfig:
 
     # File filtering
     include_patterns: list[str] = field(default_factory=lambda: ["*.swift"])
-    exclude_patterns: list[str] = field(default_factory=lambda: [
-        "*Tests*", "*Test*", "*/Pods/*", "*/Carthage/*",
-        "*/.build/*", "*/DerivedData/*"
-    ])
+    exclude_patterns: list[str] = field(
+        default_factory=lambda: [
+            "*Tests*",
+            "*Test*",
+            "*/Pods/*",
+            "*/Carthage/*",
+            "*/.build/*",
+            "*/DerivedData/*",
+        ]
+    )
 
     # Scope
     target_files: list[str] = field(default_factory=list)  # specific files to test

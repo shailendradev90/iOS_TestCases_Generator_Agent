@@ -18,9 +18,7 @@ class ProjectScanner:
     def scan(self) -> iOSProject:
         """Scan the project directory and return an iOSProject model."""
         if not self.project_path.exists():
-            raise FileNotFoundError(
-                f"Project path does not exist: {self.project_path}"
-            )
+            raise FileNotFoundError(f"Project path does not exist: {self.project_path}")
 
         project = iOSProject(
             root_path=self.project_path,
@@ -132,8 +130,5 @@ class ProjectScanner:
         """Filter project source files to only those targeted for analysis."""
         if self.config.target_files:
             target_set = set(self.config.target_files)
-            return [
-                f for f in project.source_files
-                if f.name in target_set or str(f) in target_set
-            ]
+            return [f for f in project.source_files if f.name in target_set or str(f) in target_set]
         return project.source_files

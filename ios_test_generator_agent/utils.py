@@ -26,18 +26,14 @@ def format_type_summary(swift_type: SwiftType, indent: int = 0) -> str:
         static = "static " if prop.is_static else ""
         computed = " { get }" if prop.is_computed else ""
         default = f" = {prop.default_value}" if prop.default_value else ""
-        lines.append(
-            f"{prefix}  {static}{let_or_var} {prop.name}: {prop.type}{computed}{default}"
-        )
+        lines.append(f"{prefix}  {static}{let_or_var} {prop.name}: {prop.type}{computed}{default}")
 
     # Enum cases
     for case in swift_type.enum_cases:
         raw = f" = {case.raw_value}" if case.raw_value else ""
         assoc = ""
         if case.associated_values:
-            params = ", ".join(
-                f"{p.name}: {p.type}" for p in case.associated_values
-            )
+            params = ", ".join(f"{p.name}: {p.type}" for p in case.associated_values)
             assoc = f"({params})"
         lines.append(f"{prefix}  case {case.name}{assoc}{raw}")
 
@@ -92,13 +88,19 @@ def format_file_summary(swift_file: SwiftFile) -> str:
 def count_testable_elements(swift_type: SwiftType) -> dict[str, int]:
     """Count the testable elements in a Swift type."""
     return {
-        "methods": len([
-            m for m in swift_type.methods
-            if m.access_control.value in ("public", "internal", "open")
-        ]),
-        "properties": len([
-            p for p in swift_type.properties
-            if p.access_control.value in ("public", "internal", "open")
-        ]),
+        "methods": len(
+            [
+                m
+                for m in swift_type.methods
+                if m.access_control.value in ("public", "internal", "open")
+            ]
+        ),
+        "properties": len(
+            [
+                p
+                for p in swift_type.properties
+                if p.access_control.value in ("public", "internal", "open")
+            ]
+        ),
         "enum_cases": len(swift_type.enum_cases),
     }

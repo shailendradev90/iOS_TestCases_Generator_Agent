@@ -92,10 +92,9 @@ def load_config(
     config_data.pop("_anthropic_api_key", None)
 
     # Build config object
-    return AgentConfig(**{
-        k: v for k, v in config_data.items()
-        if k in AgentConfig.__dataclass_fields__
-    })
+    return AgentConfig(
+        **{k: v for k, v in config_data.items() if k in AgentConfig.__dataclass_fields__}
+    )
 
 
 def save_config(config: AgentConfig, path: str | Path) -> None:

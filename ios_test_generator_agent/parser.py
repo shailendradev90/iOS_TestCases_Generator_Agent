@@ -57,8 +57,7 @@ _COMPUTED_PROPERTY_PATTERN = re.compile(
 
 # Matches: [access] init(params)
 _INIT_PATTERN = re.compile(
-    rf"^\s*({_ACCESS_MODIFIERS}\s+)?init\s*\(([^)]*)\)"
-    rf"(\s+async)?(\s+throws)?",
+    rf"^\s*({_ACCESS_MODIFIERS}\s+)?init\s*\(([^)]*)\)" rf"(\s+async)?(\s+throws)?",
     re.MULTILINE,
 )
 
@@ -72,10 +71,7 @@ _ENUM_CASE_PATTERN = re.compile(
 )
 
 # Pattern to match parameter: [label] name: Type [,]
-_PARAM_PATTERN = re.compile(
-    r"(\w+\s+)?(\w+)\s*:\s*([^,=]+?)(?:\s*=\s*([^,]+))?"
-    r"(?:\s*,\s*|$)"
-)
+_PARAM_PATTERN = re.compile(r"(\w+\s+)?(\w+)\s*:\s*([^,=]+?)(?:\s*=\s*([^,]+))?" r"(?:\s*,\s*|$)")
 
 # Property wrapper pattern
 _PROPERTY_WRAPPER_PATTERN = re.compile(r"^\s*@\w+(?:\([^)]*\))?\s*$", re.MULTILINE)
@@ -134,22 +130,16 @@ class SwiftParser:
                 continue
 
             kind = SwiftDeclarationKind(kind_str)
-            access = (
-                SwiftAccessControl(access_str)
-                if access_str
-                else SwiftAccessControl.INTERNAL
-            )
+            access = SwiftAccessControl(access_str) if access_str else SwiftAccessControl.INTERNAL
 
             # Parse inheritance
-            superclasses, conformances = self._parse_inheritance(
-                inheritance_str, kind
-            )
+            superclasses, conformances = self._parse_inheritance(inheritance_str, kind)
 
             # Find the body of this type
             body_start = match.end()
             body, body_end = self._extract_brace_block(source, body_start - 1)
 
-            start_line = source[:match.start()].count("\n") + 1
+            start_line = source[: match.start()].count("\n") + 1
             end_line = source[:body_end].count("\n") + 1
 
             # Parse members from body
@@ -168,7 +158,7 @@ class SwiftParser:
                 methods=methods,
                 enum_cases=enum_cases,
                 nested_types=nested_types,
-                raw_source=source[match.start():body_end],
+                raw_source=source[match.start() : body_end],
                 start_line=start_line,
                 end_line=end_line,
             )
@@ -205,17 +195,29 @@ class SwiftParser:
         """Heuristic to determine if an inherited type is likely a class."""
         # Common class suffixes/prefixes
         class_indicators = [
-            "Controller", "ViewController", "View", "Manager",
-            "Service", "ViewModel", "Presenter", "Interactor",
-            "Router", "Coordinator", "Cell", "Collection",
-            "NSObject", "UIView", "UIViewController", "UITableViewCell",
-            "UICollectionViewCell", "UIButton", "UILabel",
+            "Controller",
+            "ViewController",
+            "View",
+            "Manager",
+            "Service",
+            "ViewModel",
+            "Presenter",
+            "Interactor",
+            "Router",
+            "Coordinator",
+            "Cell",
+            "Collection",
+            "NSObject",
+            "UIView",
+            "UIViewController",
+            "UITableViewCell",
+            "UICollectionViewCell",
+            "UIButton",
+            "UILabel",
         ]
         return any(indicator in name for indicator in class_indicators)
 
-    def _extract_brace_block(
-        self, source: str, start_brace_pos: int
-    ) -> tuple[str, int]:
+    def _extract_brace_block(self, source: str, start_brace_pos: int) -> tuple[str, int]:
         """Extract content between matching braces."""
         if start_brace_pos >= len(source) or source[start_brace_pos] != "{":
             return "", start_brace_pos
@@ -370,7 +372,7 @@ class SwiftParser:
                     is_async=is_async,
                     is_throwing=is_throwing,
                     body=method_body,
-                    raw_source=body[match.start():body_start],
+                    raw_source=body[match.start() : body_start],
                 )
             )
 
@@ -402,7 +404,7 @@ class SwiftParser:
                     is_async=is_async,
                     is_throwing=is_throwing,
                     body=init_body,
-                    raw_source=body[match.start():body_start],
+                    raw_source=body[match.start() : body_start],
                 )
             )
 
@@ -513,9 +515,7 @@ class SwiftParser:
                 )
 
         # Match: [label ]name: Type [= default]
-        match = re.match(
-            r"(\w+)\s+(\w+)\s*:\s*(.+?)(?:\s*=\s*(.+))?$", param_str
-        )
+        match = re.match(r"(\w+)\s+(\w+)\s*:\s*(.+?)(?:\s*=\s*(.+))?$", param_str)
         if match:
             return SwiftParameter(
                 label=match.group(1).strip(),
@@ -526,9 +526,7 @@ class SwiftParser:
             )
 
         # Match: name: Type [= default]
-        match = re.match(
-            r"(\w+)\s*:\s*(.+?)(?:\s*=\s*(.+))?$", param_str
-        )
+        match = re.match(r"(\w+)\s*:\s*(.+?)(?:\s*=\s*(.+))?$", param_str)
         if match:
             return SwiftParameter(
                 label=match.group(1).strip(),

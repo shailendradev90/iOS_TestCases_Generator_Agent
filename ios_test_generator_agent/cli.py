@@ -48,25 +48,30 @@ def cli() -> None:
 
 @cli.command()
 @click.argument("project_path", type=click.Path(exists=True), default=".")
-@click.option("--output", "-o", type=click.Path(), default=None,
-              help="Output directory for generated tests.")
-@click.option("--provider", type=click.Choice(["openai", "anthropic", "groq"]), default=None,
-              help="LLM provider to use.")
+@click.option(
+    "--output", "-o", type=click.Path(), default=None, help="Output directory for generated tests."
+)
+@click.option(
+    "--provider",
+    type=click.Choice(["openai", "anthropic", "groq"]),
+    default=None,
+    help="LLM provider to use.",
+)
 @click.option("--model", default=None, help="LLM model name.")
-@click.option("--framework", type=click.Choice(["XCTest", "SwiftTesting"]),
-              default=None, help="Test framework to generate for.")
-@click.option("--files", multiple=True, default=None,
-              help="Specific files to generate tests for.")
-@click.option("--types", multiple=True, default=None,
-              help="Specific types to generate tests for.")
-@click.option("--no-mocks", is_flag=True, default=None,
-              help="Disable mock generation.")
-@click.option("--no-setup", is_flag=True, default=None,
-              help="Skip setUp/tearDown generation.")
-@click.option("--dry-run", is_flag=True, default=False,
-              help="Analyze project without generating tests.")
-@click.option("--verbose", "-v", is_flag=True, default=False,
-              help="Verbose output.")
+@click.option(
+    "--framework",
+    type=click.Choice(["XCTest", "SwiftTesting"]),
+    default=None,
+    help="Test framework to generate for.",
+)
+@click.option("--files", multiple=True, default=None, help="Specific files to generate tests for.")
+@click.option("--types", multiple=True, default=None, help="Specific types to generate tests for.")
+@click.option("--no-mocks", is_flag=True, default=None, help="Disable mock generation.")
+@click.option("--no-setup", is_flag=True, default=None, help="Skip setUp/tearDown generation.")
+@click.option(
+    "--dry-run", is_flag=True, default=False, help="Analyze project without generating tests."
+)
+@click.option("--verbose", "-v", is_flag=True, default=False, help="Verbose output.")
 def generate(
     project_path: str,
     output: str | None,
@@ -114,7 +119,9 @@ def generate(
         # Load config
         try:
             config = load_config(project_path=project_path, **overrides)
-            logger.debug(f"Configuration loaded: provider={config.llm_provider}, model={config.model}")
+            logger.debug(
+                f"Configuration loaded: provider={config.llm_provider}, model={config.model}"
+            )
         except Exception as e:
             raise ConfigurationError("Failed to load configuration", details=str(e))
 
@@ -149,9 +156,7 @@ def generate(
             logger.warning("No source files found to analyze")
             return
 
-        parser = SwiftParser(
-            target_types=config.target_types if config.target_types else None
-        )
+        parser = SwiftParser(target_types=config.target_types if config.target_types else None)
 
         console.print()
         total_types = 0
@@ -183,9 +188,7 @@ def generate(
                 progress.advance(task)
 
         # Print analysis summary
-        _print_analysis_summary(
-            len(files_to_analyze), total_types, total_methods, total_properties
-        )
+        _print_analysis_summary(len(files_to_analyze), total_types, total_methods, total_properties)
 
         if dry_run:
             console.print("\n[yellow]Dry run complete. No tests were generated.[/yellow]")
@@ -202,9 +205,7 @@ def generate(
             TextColumn("[progress.description]{task.description}"),
             console=console,
         ) as progress:
-            testable_files = [
-                f for f in project.parsed_files if f.types
-            ]
+            testable_files = [f for f in project.parsed_files if f.types]
             task = progress.add_task(
                 f"Generating tests for {len(testable_files)} files...",
                 total=len(testable_files),
@@ -313,8 +314,7 @@ def generate(
 
 @cli.command()
 @click.argument("project_path", type=click.Path(exists=True), default=".")
-@click.option("--verbose", "-v", is_flag=True, default=False,
-              help="Show detailed file summaries.")
+@click.option("--verbose", "-v", is_flag=True, default=False, help="Show detailed file summaries.")
 def analyze(project_path: str, verbose: bool) -> None:
     """Analyze an iOS project without generating tests.
 

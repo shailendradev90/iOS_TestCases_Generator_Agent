@@ -132,4 +132,5 @@ def setup_logging(
     """
     logger.setup(level=level, log_file=log_file, verbose=verbose)
 
+
 # Made with Bob
