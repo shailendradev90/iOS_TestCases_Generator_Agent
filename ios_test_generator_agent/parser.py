@@ -17,7 +17,6 @@ from .models import (
     SwiftType,
 )
 
-
 # Regex patterns for Swift declarations
 _ACCESS_MODIFIERS = r"(?:open|public|internal|fileprivate|private)"
 _STATIC_MODIFIERS = r"(?:static|class)"
@@ -97,7 +96,7 @@ class SwiftParser:
         """Parse a single Swift file and return its structure."""
         try:
             source = file_path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError) as e:
+        except (UnicodeDecodeError, OSError):
             return SwiftFile(path=file_path, raw_source="", imports=[])
 
         swift_file = SwiftFile(
@@ -121,11 +120,11 @@ class SwiftParser:
     def _extract_types(self, source: str) -> list[SwiftType]:
         """Extract all type declarations from source."""
         types: list[SwiftType] = []
-        lines = source.split("\n")
+        source.split("\n")
 
         for match in _TYPE_DECL_PATTERN.finditer(source):
             access_str = (match.group(1) or "").strip()
-            static_str = (match.group(2) or "").strip()
+            (match.group(2) or "").strip()
             kind_str = match.group(3).strip()
             name = match.group(4).strip()
             inheritance_str = (match.group(5) or "").strip()
@@ -428,7 +427,7 @@ class SwiftParser:
                 continue
 
             access_str = (match.group(1) or "").strip()
-            static_str = (match.group(2) or "").strip()
+            (match.group(2) or "").strip()
             name = match.group(3).strip()
             params_str = match.group(4).strip()
             is_async = bool(match.group(5))

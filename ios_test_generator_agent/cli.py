@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
 
 import click
@@ -18,14 +17,13 @@ from .exceptions import (
     AgentError,
     APIKeyError,
     ConfigurationError,
-    LLMError,
     ProjectNotFoundError,
     RateLimitError,
     TestGenerationError,
 )
 from .generator import TestGenerator
 from .logger import get_logger, setup_logging
-from .models import AgentConfig, TestSuite
+from .models import TestSuite
 from .parser import SwiftParser
 from .scanner import ProjectScanner
 from .utils import count_testable_elements, format_file_summary
@@ -90,9 +88,9 @@ def generate(
     # Setup logging
     log_file = Path.cwd() / "ios-test-gen.log" if verbose else None
     setup_logging(verbose=verbose, log_file=log_file)
-    
+
     logger.info("Starting iOS Test Generator Agent")
-    
+
     try:
         # Build overrides from CLI args
         overrides: dict = {}
@@ -118,7 +116,7 @@ def generate(
             config = load_config(project_path=project_path, **overrides)
             logger.debug(f"Configuration loaded: provider={config.llm_provider}, model={config.model}")
         except Exception as e:
-            raise ConfigurationError(f"Failed to load configuration", details=str(e))
+            raise ConfigurationError("Failed to load configuration", details=str(e))
 
         # Print banner
         console.print()
@@ -248,16 +246,16 @@ def generate(
 
     except APIKeyError as e:
         console.print(f"\n[bold red]❌ API Key Error:[/bold red] {e.message}")
-        console.print(f"\n[yellow]💡 Solution:[/yellow]")
+        console.print("\n[yellow]💡 Solution:[/yellow]")
         console.print(f"   Set your API key: export {e.provider.upper()}_API_KEY='your-key-here'")
-        console.print(f"   Or see: GROQ_SETUP.md for detailed instructions")
+        console.print("   Or see: GROQ_SETUP.md for detailed instructions")
         logger.error(f"API key error: {e}")
         sys.exit(1)
 
     except RateLimitError as e:
         console.print(f"\n[bold red]❌ Rate Limit Error:[/bold red] {e.message}")
-        console.print(f"\n[yellow]💡 Solution:[/yellow]")
-        console.print(f"   Wait a moment and try again")
+        console.print("\n[yellow]💡 Solution:[/yellow]")
+        console.print("   Wait a moment and try again")
         if e.retry_after:
             console.print(f"   Retry after: {e.retry_after} seconds")
         logger.error(f"Rate limit error: {e}")
@@ -267,17 +265,17 @@ def generate(
         console.print(f"\n[bold red]❌ Configuration Error:[/bold red] {e.message}")
         if e.details:
             console.print(f"   Details: {e.details}")
-        console.print(f"\n[yellow]💡 Solution:[/yellow]")
-        console.print(f"   Run: ios-test-gen init")
-        console.print(f"   Then edit: ios-test-gen.yml")
+        console.print("\n[yellow]💡 Solution:[/yellow]")
+        console.print("   Run: ios-test-gen init")
+        console.print("   Then edit: ios-test-gen.yml")
         logger.error(f"Configuration error: {e}")
         sys.exit(1)
 
     except ProjectNotFoundError as e:
         console.print(f"\n[bold red]❌ Project Not Found:[/bold red] {e.message}")
-        console.print(f"\n[yellow]💡 Solution:[/yellow]")
+        console.print("\n[yellow]💡 Solution:[/yellow]")
         console.print(f"   Check the project path: {project_path}")
-        console.print(f"   Ensure it contains Swift source files")
+        console.print("   Ensure it contains Swift source files")
         logger.error(f"Project not found: {e}")
         sys.exit(1)
 
@@ -285,9 +283,9 @@ def generate(
         console.print(f"\n[bold red]❌ Test Generation Error:[/bold red] {e.message}")
         if e.details:
             console.print(f"   Details: {e.details}")
-        console.print(f"\n[yellow]💡 Solution:[/yellow]")
-        console.print(f"   Check your API key and internet connection")
-        console.print(f"   Try with --verbose for more details")
+        console.print("\n[yellow]💡 Solution:[/yellow]")
+        console.print("   Check your API key and internet connection")
+        console.print("   Try with --verbose for more details")
         logger.error(f"Test generation error: {e}")
         sys.exit(1)
 
@@ -305,8 +303,8 @@ def generate(
 
     except Exception as e:
         console.print(f"\n[bold red]❌ Unexpected Error:[/bold red] {str(e)}")
-        console.print(f"\n[yellow]💡 Please report this issue:[/yellow]")
-        console.print(f"   https://github.com/yourusername/ios-test-generator-agent/issues")
+        console.print("\n[yellow]💡 Please report this issue:[/yellow]")
+        console.print("   https://github.com/yourusername/ios-test-generator-agent/issues")
         logger.exception("Unexpected error occurred")
         if verbose:
             raise
@@ -419,7 +417,6 @@ def init_config(path: str) -> None:
 
 def format_type_summary_rich(swift_type, indent: int = 0) -> str:
     """Format type summary with rich markup."""
-    from .models import SwiftDeclarationKind
 
     kind = swift_type.kind.value
     inheritance = ""

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import os
 import time
-from pathlib import Path
 from typing import Any
 
 from tenacity import (
@@ -23,7 +21,6 @@ from .models import (
     SwiftFile,
     SwiftType,
     TestCase,
-    TestSuite,
 )
 
 logger = get_logger()

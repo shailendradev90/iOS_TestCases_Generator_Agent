@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import logging
-import sys
 from pathlib import Path
-from typing import Optional
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -17,7 +15,7 @@ console = Console()
 class AgentLogger:
     """Centralized logging for the iOS Test Generator Agent."""
 
-    _instance: Optional[AgentLogger] = None
+    _instance: AgentLogger | None = None
     _initialized: bool = False
 
     def __new__(cls) -> AgentLogger:
@@ -36,7 +34,7 @@ class AgentLogger:
     def setup(
         self,
         level: int = logging.INFO,
-        log_file: Optional[Path] = None,
+        log_file: Path | None = None,
         verbose: bool = False,
     ) -> None:
         """Configure logging handlers and formatters.
@@ -122,7 +120,7 @@ def get_logger() -> AgentLogger:
 
 def setup_logging(
     level: int = logging.INFO,
-    log_file: Optional[Path] = None,
+    log_file: Path | None = None,
     verbose: bool = False,
 ) -> None:
     """Setup logging configuration.

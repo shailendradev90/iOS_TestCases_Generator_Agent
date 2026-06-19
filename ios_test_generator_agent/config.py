@@ -9,7 +9,6 @@ import yaml
 
 from .models import AgentConfig
 
-
 DEFAULT_CONFIG_FILE = "ios-test-gen.yml"
 ENV_PREFIX = "IOS_TEST_GEN_"
 
@@ -62,9 +61,9 @@ def load_config(
         f"{ENV_PREFIX}TEST_FRAMEWORK": "test_framework",
         f"{ENV_PREFIX}GENERATE_MOCKS": "generate_mocks",
         f"{ENV_PREFIX}MOCK_FRAMEWORK": "mock_framework",
-        f"OPENAI_API_KEY": "_openai_api_key",
-        f"ANTHROPIC_API_KEY": "_anthropic_api_key",
-        f"GROQ_API_KEY": "_groq_api_key",
+        "OPENAI_API_KEY": "_openai_api_key",
+        "ANTHROPIC_API_KEY": "_anthropic_api_key",
+        "GROQ_API_KEY": "_groq_api_key",
     }
 
     for env_var, config_key in env_map.items():
