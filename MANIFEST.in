@@ -1,0 +1,27 @@
+# Include documentation and metadata files
+include README.md
+include LICENSE
+include CHANGELOG.md
+include QUICK_START.md
+include USAGE_GUIDE.md
+include GROQ_SETUP.md
+include GROQ_INTEGRATION_SUMMARY.md
+
+# Include configuration examples
+include setup_api_key.sh
+
+# Include package data
+recursive-include ios_test_generator_agent *.py
+recursive-include ios_test_generator_agent py.typed
+
+# Exclude development and build files
+exclude .gitignore
+exclude .python-version
+exclude main.py
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store
+recursive-exclude tests *
+recursive-exclude sample_ios_project *
+recursive-exclude .vscode *
+recursive-exclude .git *

@@ -14,7 +14,17 @@ from rich.table import Table
 from rich.tree import Tree
 
 from .config import generate_default_config, load_config
+from .exceptions import (
+    AgentError,
+    APIKeyError,
+    ConfigurationError,
+    LLMError,
+    ProjectNotFoundError,
+    RateLimitError,
+    TestGenerationError,
+)
 from .generator import TestGenerator
+from .logger import get_logger, setup_logging
 from .models import AgentConfig, TestSuite
 from .parser import SwiftParser
 from .scanner import ProjectScanner
@@ -22,10 +32,11 @@ from .utils import count_testable_elements, format_file_summary
 from .writer import TestWriter
 
 console = Console()
+logger = get_logger()
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="ios-test-gen")
+@click.version_option(version="1.0.0", prog_name="ios-test-gen")
 def cli() -> None:
     """🧪 iOS Test Generator Agent
 
@@ -76,142 +87,230 @@ def generate(
     PROJECT_PATH is the path to the iOS project root directory.
     Defaults to the current directory.
     """
-    # Build overrides from CLI args
-    overrides: dict = {}
-    if output:
-        overrides["output_path"] = output
-    if provider:
-        overrides["llm_provider"] = provider
-    if model:
-        overrides["model"] = model
-    if framework:
-        overrides["test_framework"] = framework
-    if files:
-        overrides["target_files"] = list(files)
-    if types:
-        overrides["target_types"] = list(types)
-    if no_mocks is not None:
-        overrides["generate_mocks"] = not no_mocks
-    if no_setup is not None:
-        overrides["include_setup_teardown"] = not no_setup
+    # Setup logging
+    log_file = Path.cwd() / "ios-test-gen.log" if verbose else None
+    setup_logging(verbose=verbose, log_file=log_file)
+    
+    logger.info("Starting iOS Test Generator Agent")
+    
+    try:
+        # Build overrides from CLI args
+        overrides: dict = {}
+        if output:
+            overrides["output_path"] = output
+        if provider:
+            overrides["llm_provider"] = provider
+        if model:
+            overrides["model"] = model
+        if framework:
+            overrides["test_framework"] = framework
+        if files:
+            overrides["target_files"] = list(files)
+        if types:
+            overrides["target_types"] = list(types)
+        if no_mocks is not None:
+            overrides["generate_mocks"] = not no_mocks
+        if no_setup is not None:
+            overrides["include_setup_teardown"] = not no_setup
 
-    # Load config
-    config = load_config(project_path=project_path, **overrides)
+        # Load config
+        try:
+            config = load_config(project_path=project_path, **overrides)
+            logger.debug(f"Configuration loaded: provider={config.llm_provider}, model={config.model}")
+        except Exception as e:
+            raise ConfigurationError(f"Failed to load configuration", details=str(e))
 
-    # Print banner
-    console.print()
-    console.print(
-        Panel.fit(
-            "[bold blue]🧪 iOS Test Generator Agent[/bold blue]\n"
-            f"[dim]Analyzing project at: {config.project_path}[/dim]",
-            border_style="blue",
+        # Print banner
+        console.print()
+        console.print(
+            Panel.fit(
+                "[bold blue]🧪 iOS Test Generator Agent[/bold blue]\n"
+                f"[dim]Analyzing project at: {config.project_path}[/dim]",
+                border_style="blue",
+            )
         )
-    )
-    console.print()
+        console.print()
 
-    # Step 1: Scan project
-    with console.status("[bold green]Scanning project structure..."):
-        scanner = ProjectScanner(config)
-        project = scanner.scan()
+        # Step 1: Scan project
+        try:
+            with console.status("[bold green]Scanning project structure..."):
+                scanner = ProjectScanner(config)
+                project = scanner.scan()
+            logger.info(f"Project scanned: {project.name}")
+        except FileNotFoundError as e:
+            raise ProjectNotFoundError(f"Project not found at: {project_path}", details=str(e))
+        except Exception as e:
+            raise AgentError("Failed to scan project", details=str(e))
 
-    _print_project_summary(project)
+        _print_project_summary(project)
 
-    # Step 2: Parse source files
-    files_to_analyze = scanner.get_files_to_analyze(project)
-    if not files_to_analyze:
-        console.print("[yellow]No source files found to analyze.[/yellow]")
-        return
+        # Step 2: Parse source files
+        files_to_analyze = scanner.get_files_to_analyze(project)
+        if not files_to_analyze:
+            console.print("[yellow]No source files found to analyze.[/yellow]")
+            logger.warning("No source files found to analyze")
+            return
 
-    parser = SwiftParser(
-        target_types=config.target_types if config.target_types else None
-    )
-
-    console.print()
-    total_types = 0
-    total_methods = 0
-    total_properties = 0
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task(
-            f"Parsing {len(files_to_analyze)} Swift files...", total=len(files_to_analyze)
-        )
-
-        for file_path in files_to_analyze:
-            swift_file = parser.parse_file(file_path)
-            project.parsed_files.append(swift_file)
-
-            for t in swift_file.types:
-                counts = count_testable_elements(t)
-                total_types += 1
-                total_methods += counts["methods"]
-                total_properties += counts["properties"]
-
-            if verbose:
-                progress.console.print(f"  {format_file_summary(swift_file)}")
-
-            progress.advance(task)
-
-    # Print analysis summary
-    _print_analysis_summary(
-        len(files_to_analyze), total_types, total_methods, total_properties
-    )
-
-    if dry_run:
-        console.print("\n[yellow]Dry run complete. No tests were generated.[/yellow]")
-        return
-
-    # Step 3: Generate tests
-    console.print()
-    generator = TestGenerator(config)
-    suite = TestSuite(project_name=project.name)
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        testable_files = [
-            f for f in project.parsed_files if f.types
-        ]
-        task = progress.add_task(
-            f"Generating tests for {len(testable_files)} files...",
-            total=len(testable_files),
+        parser = SwiftParser(
+            target_types=config.target_types if config.target_types else None
         )
 
-        for swift_file in testable_files:
-            file_label = swift_file.path.name
-            type_names = [t.name for t in swift_file.types]
-            progress.update(
-                task,
-                description=f"Generating tests for [cyan]{file_label}[/cyan] "
-                f"({', '.join(type_names)})...",
+        console.print()
+        total_types = 0
+        total_methods = 0
+        total_properties = 0
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task = progress.add_task(
+                f"Parsing {len(files_to_analyze)} Swift files...", total=len(files_to_analyze)
             )
 
-            test_cases = generator.generate_for_file(swift_file)
-            suite.test_cases.extend(test_cases)
+            for file_path in files_to_analyze:
+                swift_file = parser.parse_file(file_path)
+                project.parsed_files.append(swift_file)
 
-            for tc in test_cases:
-                progress.console.print(
-                    f"  ✓ Generated [green]{tc.test_class_name}[/green] "
-                    f"({len(tc.test_methods)} tests)"
+                for t in swift_file.types:
+                    counts = count_testable_elements(t)
+                    total_types += 1
+                    total_methods += counts["methods"]
+                    total_properties += counts["properties"]
+
+                if verbose:
+                    progress.console.print(f"  {format_file_summary(swift_file)}")
+
+                progress.advance(task)
+
+        # Print analysis summary
+        _print_analysis_summary(
+            len(files_to_analyze), total_types, total_methods, total_properties
+        )
+
+        if dry_run:
+            console.print("\n[yellow]Dry run complete. No tests were generated.[/yellow]")
+            logger.info("Dry run completed")
+            return
+
+        # Step 3: Generate tests
+        console.print()
+        generator = TestGenerator(config)
+        suite = TestSuite(project_name=project.name)
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            testable_files = [
+                f for f in project.parsed_files if f.types
+            ]
+            task = progress.add_task(
+                f"Generating tests for {len(testable_files)} files...",
+                total=len(testable_files),
+            )
+
+            for swift_file in testable_files:
+                file_label = swift_file.path.name
+                type_names = [t.name for t in swift_file.types]
+                progress.update(
+                    task,
+                    description=f"Generating tests for [cyan]{file_label}[/cyan] "
+                    f"({', '.join(type_names)})...",
                 )
 
-            progress.advance(task)
+                test_cases = generator.generate_for_file(swift_file)
+                suite.test_cases.extend(test_cases)
 
-    # Step 4: Write test files
-    if not suite.test_cases:
-        console.print("\n[yellow]No test cases were generated.[/yellow]")
-        return
+                for tc in test_cases:
+                    progress.console.print(
+                        f"  ✓ Generated [green]{tc.test_class_name}[/green] "
+                        f"({len(tc.test_methods)} tests)"
+                    )
 
-    writer = TestWriter(config)
-    written_files = writer.write_suite(suite)
+                progress.advance(task)
 
-    # Print results
-    _print_results(written_files, suite)
+        # Step 4: Write test files
+        if not suite.test_cases:
+            console.print("\n[yellow]No test cases were generated.[/yellow]")
+            logger.warning("No test cases were generated")
+            return
+
+        writer = TestWriter(config)
+        written_files = writer.write_suite(suite)
+        logger.info(f"Wrote {len(written_files)} test files")
+
+        # Print results
+        _print_results(written_files, suite)
+        logger.info("Test generation completed successfully")
+
+    except APIKeyError as e:
+        console.print(f"\n[bold red]❌ API Key Error:[/bold red] {e.message}")
+        console.print(f"\n[yellow]💡 Solution:[/yellow]")
+        console.print(f"   Set your API key: export {e.provider.upper()}_API_KEY='your-key-here'")
+        console.print(f"   Or see: GROQ_SETUP.md for detailed instructions")
+        logger.error(f"API key error: {e}")
+        sys.exit(1)
+
+    except RateLimitError as e:
+        console.print(f"\n[bold red]❌ Rate Limit Error:[/bold red] {e.message}")
+        console.print(f"\n[yellow]💡 Solution:[/yellow]")
+        console.print(f"   Wait a moment and try again")
+        if e.retry_after:
+            console.print(f"   Retry after: {e.retry_after} seconds")
+        logger.error(f"Rate limit error: {e}")
+        sys.exit(1)
+
+    except ConfigurationError as e:
+        console.print(f"\n[bold red]❌ Configuration Error:[/bold red] {e.message}")
+        if e.details:
+            console.print(f"   Details: {e.details}")
+        console.print(f"\n[yellow]💡 Solution:[/yellow]")
+        console.print(f"   Run: ios-test-gen init")
+        console.print(f"   Then edit: ios-test-gen.yml")
+        logger.error(f"Configuration error: {e}")
+        sys.exit(1)
+
+    except ProjectNotFoundError as e:
+        console.print(f"\n[bold red]❌ Project Not Found:[/bold red] {e.message}")
+        console.print(f"\n[yellow]💡 Solution:[/yellow]")
+        console.print(f"   Check the project path: {project_path}")
+        console.print(f"   Ensure it contains Swift source files")
+        logger.error(f"Project not found: {e}")
+        sys.exit(1)
+
+    except TestGenerationError as e:
+        console.print(f"\n[bold red]❌ Test Generation Error:[/bold red] {e.message}")
+        if e.details:
+            console.print(f"   Details: {e.details}")
+        console.print(f"\n[yellow]💡 Solution:[/yellow]")
+        console.print(f"   Check your API key and internet connection")
+        console.print(f"   Try with --verbose for more details")
+        logger.error(f"Test generation error: {e}")
+        sys.exit(1)
+
+    except AgentError as e:
+        console.print(f"\n[bold red]❌ Error:[/bold red] {e.message}")
+        if e.details:
+            console.print(f"   Details: {e.details}")
+        logger.error(f"Agent error: {e}")
+        sys.exit(1)
+
+    except KeyboardInterrupt:
+        console.print("\n\n[yellow]⚠️  Operation cancelled by user[/yellow]")
+        logger.info("Operation cancelled by user")
+        sys.exit(130)
+
+    except Exception as e:
+        console.print(f"\n[bold red]❌ Unexpected Error:[/bold red] {str(e)}")
+        console.print(f"\n[yellow]💡 Please report this issue:[/yellow]")
+        console.print(f"   https://github.com/yourusername/ios-test-generator-agent/issues")
+        logger.exception("Unexpected error occurred")
+        if verbose:
+            raise
+        sys.exit(1)
 
 
 @cli.command()

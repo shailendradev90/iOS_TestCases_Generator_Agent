@@ -165,8 +165,8 @@ class TestSuite:
 class AgentConfig:
     """Configuration for the test generator agent."""
     # LLM settings
-    llm_provider: str = "openai"  # "openai", "anthropic", or "groq"
-    model: str = "gpt-4o"
+    llm_provider: str = "groq"  # "openai", "anthropic", or "groq"
+    model: str =  "openai/gpt-oss-120b"  #"gpt-4o"
     temperature: float = 0.2
     max_tokens: int = 4096
 

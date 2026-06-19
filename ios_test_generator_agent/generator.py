@@ -4,8 +4,19 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
+from typing import Any
 
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from .exceptions import APIKeyError, LLMError, RateLimitError, TestGenerationError
+from .logger import get_logger
 from .models import (
     AgentConfig,
     SwiftDeclarationKind,
@@ -15,89 +26,155 @@ from .models import (
     TestSuite,
 )
 
+logger = get_logger()
+
 
 class LLMClient:
-    """Unified LLM client supporting OpenAI, Anthropic, and Groq."""
+    """Unified LLM client supporting OpenAI, Anthropic, and Groq with retry logic."""
 
     def __init__(self, config: AgentConfig) -> None:
         self.config = config
-        self._client = None
+        self._client: Any = None
+        self._request_count = 0
+        self._last_request_time = 0.0
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Lazy-initialize the LLM client."""
         if self._client is not None:
             return self._client
 
-        if self.config.llm_provider == "anthropic":
-            import anthropic
+        provider = self.config.llm_provider.lower()
+        logger.debug(f"Initializing {provider} client")
 
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
-            if not api_key:
-                raise EnvironmentError(
-                    "ANTHROPIC_API_KEY environment variable is required "
-                    "when using the Anthropic provider."
-                )
-            self._client = anthropic.Anthropic(api_key=api_key)
-        elif self.config.llm_provider == "groq":
-            from groq import Groq
+        try:
+            if provider == "anthropic":
+                import anthropic
 
-            api_key = os.environ.get("GROQ_API_KEY")
-            if not api_key:
-                raise EnvironmentError(
-                    "GROQ_API_KEY environment variable is required "
-                    "when using the Groq provider."
-                )
-            self._client = Groq(api_key=api_key)
-        else:
-            import openai
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
+                if not api_key:
+                    raise APIKeyError("anthropic")
+                self._client = anthropic.Anthropic(api_key=api_key)
+            elif provider == "groq":
+                from groq import Groq
 
-            api_key = os.environ.get("OPENAI_API_KEY")
-            if not api_key:
-                raise EnvironmentError(
-                    "OPENAI_API_KEY environment variable is required "
-                    "when using the OpenAI provider."
-                )
-            self._client = openai.OpenAI(api_key=api_key)
+                api_key = os.environ.get("GROQ_API_KEY")
+                if not api_key:
+                    raise APIKeyError("groq")
+                self._client = Groq(api_key=api_key)
+            else:
+                import openai
+
+                api_key = os.environ.get("OPENAI_API_KEY")
+                if not api_key:
+                    raise APIKeyError("openai")
+                self._client = openai.OpenAI(api_key=api_key)
+
+            logger.info(f"Successfully initialized {provider} client")
+        except ImportError as e:
+            raise LLMError(
+                f"Failed to import {provider} library. "
+                f"Please install it: pip install {provider}",
+                details=str(e),
+            )
+        except Exception as e:
+            raise LLMError(f"Failed to initialize {provider} client", details=str(e))
 
         return self._client
 
-    def chat(self, system_prompt: str, user_prompt: str) -> str:
-        """Send a chat request to the LLM."""
-        client = self._get_client()
+    def _rate_limit(self) -> None:
+        """Simple rate limiting to avoid overwhelming the API."""
+        current_time = time.time()
+        time_since_last = current_time - self._last_request_time
 
-        if self.config.llm_provider == "anthropic":
-            response = client.messages.create(
-                model=self.config.model,
-                max_tokens=self.config.max_tokens,
-                temperature=self.config.temperature,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
-            )
-            return response.content[0].text
-        elif self.config.llm_provider == "groq":
-            # Groq uses OpenAI-compatible API
-            response = client.chat.completions.create(
-                model=self.config.model,
-                max_tokens=self.config.max_tokens,
-                temperature=self.config.temperature,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            )
-            return response.choices[0].message.content or ""
-        else:
-            # OpenAI
-            response = client.chat.completions.create(
-                model=self.config.model,
-                max_tokens=self.config.max_tokens,
-                temperature=self.config.temperature,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            )
-            return response.choices[0].message.content or ""
+        # Minimum 0.5 seconds between requests
+        min_interval = 0.5
+        if time_since_last < min_interval:
+            sleep_time = min_interval - time_since_last
+            logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f}s")
+            time.sleep(sleep_time)
+
+        self._last_request_time = time.time()
+        self._request_count += 1
+
+    @retry(
+        retry=retry_if_exception_type((LLMError, RateLimitError)),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
+    def chat(self, system_prompt: str, user_prompt: str) -> str:
+        """Send a chat request to the LLM with retry logic.
+
+        Args:
+            system_prompt: System prompt for the LLM
+            user_prompt: User prompt for the LLM
+
+        Returns:
+            Generated response text
+
+        Raises:
+            LLMError: If the API call fails after retries
+            RateLimitError: If rate limit is exceeded
+        """
+        self._rate_limit()
+        client = self._get_client()
+        provider = self.config.llm_provider.lower()
+
+        logger.debug(f"Sending request to {provider} (request #{self._request_count})")
+
+        try:
+            if provider == "anthropic":
+                response = client.messages.create(
+                    model=self.config.model,
+                    max_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_prompt}],
+                )
+                result = response.content[0].text
+            elif provider == "groq":
+                # Groq uses OpenAI-compatible API
+                response = client.chat.completions.create(
+                    model=self.config.model,
+                    max_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                )
+                result = response.choices[0].message.content or ""
+            else:
+                # OpenAI
+                response = client.chat.completions.create(
+                    model=self.config.model,
+                    max_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                )
+                result = response.choices[0].message.content or ""
+
+            logger.debug(f"Received response from {provider} ({len(result)} chars)")
+            return result
+
+        except Exception as e:
+            error_msg = str(e).lower()
+
+            # Check for rate limit errors
+            if "rate limit" in error_msg or "429" in error_msg:
+                logger.warning(f"Rate limit hit for {provider}")
+                raise RateLimitError(provider)
+
+            # Check for authentication errors
+            if "authentication" in error_msg or "401" in error_msg or "api key" in error_msg:
+                raise APIKeyError(provider)
+
+            # Generic LLM error
+            logger.error(f"LLM API error: {e}")
+            raise LLMError(f"Failed to get response from {provider}", details=str(e))
 
 
 # System prompt for test generation
@@ -159,7 +236,20 @@ class TestGenerator:
     def _generate_test_case(
         self, swift_type: SwiftType, swift_file: SwiftFile
     ) -> TestCase | None:
-        """Generate a test case for a single Swift type."""
+        """Generate a test case for a single Swift type.
+
+        Args:
+            swift_type: The Swift type to generate tests for
+            swift_file: The file containing the type
+
+        Returns:
+            Generated TestCase or None if generation fails
+
+        Raises:
+            TestGenerationError: If test generation fails critically
+        """
+        logger.debug(f"Generating test case for {swift_type.name}")
+
         # Build the prompt with code context
         user_prompt = self._build_prompt(swift_type, swift_file)
 
@@ -168,34 +258,52 @@ class TestGenerator:
                 system_prompt=SYSTEM_PROMPT.format(framework=self.config.test_framework),
                 user_prompt=user_prompt,
             )
+        except (LLMError, RateLimitError, APIKeyError) as e:
+            logger.error(f"LLM error generating tests for {swift_type.name}: {e}")
+            raise TestGenerationError(
+                f"Failed to generate tests for {swift_type.name}",
+                details=str(e),
+            )
         except Exception as e:
-            print(f"  ⚠ LLM error generating tests for {swift_type.name}: {e}")
+            logger.warning(f"Unexpected error generating tests for {swift_type.name}: {e}")
             return None
 
         # Parse the response
-        test_source = self._clean_response(raw_response)
-        test_class_name = f"{swift_type.name}Tests"
+        try:
+            test_source = self._clean_response(raw_response)
+            test_class_name = f"{swift_type.name}Tests"
 
-        # Extract individual test methods from the response
-        test_methods = self._extract_test_methods(test_source)
+            # Extract individual test methods from the response
+            test_methods = self._extract_test_methods(test_source)
 
-        # Extract setup/teardown
-        setup = self._extract_setup_teardown(test_source, "setUp")
-        teardown = self._extract_setup_teardown(test_source, "tearDown")
+            if not test_methods:
+                logger.warning(f"No test methods extracted for {swift_type.name}")
+                return None
 
-        # Determine imports needed
-        imports = self._determine_imports(swift_file, swift_type)
+            # Extract setup/teardown
+            setup = self._extract_setup_teardown(test_source, "setUp")
+            teardown = self._extract_setup_teardown(test_source, "tearDown")
 
-        return TestCase(
-            test_class_name=test_class_name,
-            source_type_name=swift_type.name,
-            source_file_path=str(swift_file.path),
-            imports=imports,
-            setup_method=setup,
-            teardown_method=teardown,
-            test_methods=test_methods,
-            raw_source=test_source,
-        )
+            # Determine imports needed
+            imports = self._determine_imports(swift_file, swift_type)
+
+            logger.info(
+                f"Generated {len(test_methods)} test methods for {swift_type.name}"
+            )
+
+            return TestCase(
+                test_class_name=test_class_name,
+                source_type_name=swift_type.name,
+                source_file_path=str(swift_file.path),
+                imports=imports,
+                setup_method=setup,
+                teardown_method=teardown,
+                test_methods=test_methods,
+                raw_source=test_source,
+            )
+        except Exception as e:
+            logger.error(f"Failed to parse test response for {swift_type.name}: {e}")
+            return None
 
     def _build_prompt(self, swift_type: SwiftType, swift_file: SwiftFile) -> str:
         """Build the LLM prompt for generating tests."""
