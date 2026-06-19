@@ -87,6 +87,16 @@ packages = ["ios_test_generator_agent"]
 line-length = 100
 target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
 include = '\.pyi?$'
+force-exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.eggs
+  | \.tox
+  | build
+  | dist
+)/
+'''
 
 [tool.ruff]
 line-length = 100

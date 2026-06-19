@@ -92,6 +92,10 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install with development dependencies
 pip install -e ".[dev]"
 
+# Install pre-commit hooks (recommended)
+pip install pre-commit
+pre-commit install
+
 # Run tests
 pytest
 
@@ -99,7 +103,25 @@ pytest
 ruff check .
 black --check .
 mypy ios_test_generator_agent
+
+# Or run all checks with pre-commit
+pre-commit run --all-files
 ```
+
+### Code Quality Tools
+
+The project uses several tools to maintain code quality:
+
+- **Black**: Code formatter (line length: 100)
+- **Ruff**: Fast Python linter
+- **MyPy**: Static type checker
+- **Pre-commit**: Git hooks for automatic checks
+
+Configuration files:
+- `.editorconfig`: Editor settings for consistent formatting
+- `.gitattributes`: Git line ending normalization (LF)
+- `.pre-commit-config.yaml`: Pre-commit hook configuration
+- `pyproject.toml`: Tool configurations (black, ruff, mypy, pytest)
 
 ## Configuration
 
