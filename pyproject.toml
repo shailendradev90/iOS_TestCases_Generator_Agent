@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ios-test-generator-agent"
-version = "1.0.0"
+version = "1.0.1"
 description = "Production-ready AI agent that analyzes iOS projects and generates comprehensive XCTest unit test cases automatically"
 readme = "README.md"
 requires-python = ">=3.9"

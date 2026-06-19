@@ -5,6 +5,20 @@ All notable changes to the iOS Test Generator Agent will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2024-06-19
+
+### Fixed
+- **Line Ending Normalization**: Added `.gitattributes` to enforce LF line endings across all platforms
+- **Cross-Platform Compatibility**: Added `.editorconfig` for consistent editor settings
+- **Code Quality**: Added `.pre-commit-config.yaml` for automated code quality checks
+- **CI/CD**: Fixed black formatting checks in GitHub Actions
+- **Documentation**: Updated INSTALLATION.md with development setup instructions
+
+### Added
+- `.gitattributes`: Git line ending configuration (LF for all text files)
+- `.editorconfig`: Editor configuration for consistent formatting
+- `.pre-commit-config.yaml`: Pre-commit hooks for black, ruff, mypy
+
 ## [1.0.0] - 2024-06-19
 
 ### Added

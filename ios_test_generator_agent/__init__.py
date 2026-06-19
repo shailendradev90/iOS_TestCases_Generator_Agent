@@ -1,6 +1,6 @@
 """iOS Test Generator Agent - Automatically generate XCTest cases for iOS projects."""
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "iOS Test Generator Team"
 __email__ = "support@ios-test-gen.dev"
 __license__ = "MIT"
