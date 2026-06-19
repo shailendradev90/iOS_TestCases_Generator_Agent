@@ -27,12 +27,12 @@ source ./setup_api_key.sh
 
 #### Option B: Set Manually for Current Session
 ```bash
-export OPENAI_API_KEY="YOUR OPEN API KEY "
+export OPENAI_API_KEY="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"
 ```
 
 #### Option C: Make it Permanent (Add to ~/.zshrc or ~/.bashrc)
 ```bash
-echo 'export OPENAI_API_KEY="YOUR OPEN KEY"' >> ~/.zshrc
+echo 'export OPENAI_API_KEY="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"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
